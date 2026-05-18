@@ -101,18 +101,19 @@ st.markdown("<p style='text-align: center; color: #64748B; font-size: 1.1rem; ma
 # ==========================================
 # 📊 CONTROL DE MÉTRICAS ANALÍTICAS (KPIs)
 # ==========================================
-# Gestión de persistencia de estado para el cálculo dinámico del pipeline de solicitudes.
+# Aseguramos que la estructura interna exista en la memoria
 if "casos" not in st.session_state:
     st.session_state.casos = []
 
-# Cálculo del número total de registros activos consumidos desde la API de Notion
-casos_pendientes_reales = len(st.session_state.casos)
-
-# Grid Layout de 3 columnas para la presentación formal de KPIs operacionales ante el jurado
+# Grid Layout de 3 columnas para la presentación formal de KPIs
 col_m1, col_m2, col_m3 = st.columns(3)
 
-# Inyección de métricas (Combinación de datos reactivos del backend y telemetría de rendimiento simulada)
-col_m1.metric("🏥 Casos Pendientes", str(casos_pendientes_reales), "En tiempo real")
+# La primera métrica ahora lee el estado actual de forma reactiva
+with col_m1:
+    # Usamos un contenedor vacío para poder actualizarlo dinámicamente si es necesario
+    metrica_casos = st.empty()
+    metrica_casos.metric("🏥 Casos Pendientes", str(len(st.session_state.casos)), "En tiempo real")
+
 col_m2.metric("⏱️ Tiempo de Respuesta", "1.2s", "-0.5s (Promedio)")
 col_m3.metric("✅ Precisión IA", "99.8%", "+0.1% (Último mes)")
 
@@ -148,6 +149,8 @@ with tab1:
             with st.spinner("Conectando con servidores..."):
                 st.session_state.casos = obtener_casos_pendientes()
                 st.session_state.sincronizado = True
+                # 👇 ESTA LÍNEA ES CLAVE: Hace que el contador de arriba se entere del cambio de inmediato
+                st.rerun()
         
         # Renderizado dinámico condicional basado en el estado persistido de la aplicación
         if st.session_state.sincronizado:
