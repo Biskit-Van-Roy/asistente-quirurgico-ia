@@ -197,7 +197,7 @@ with tab2:
                 st.error(f"**📄 [{i}] - {p}**\n\n**🧠 Motivo de Objeción IA:** {r}")
 
 # ==========================================
-# 🏢 PESTAÑA 3: AUDITORÍA DE SEGUROS (EL VERDADERO CEREBRO RAG)
+# 🏢 PESTAÑA 3: AUDITORÍA DE SEGUROS (ESTADO PERSISTENTE)
 # ==========================================
 with tab3:
     st.markdown("### 🏢 Núcleo Operacional de la Aseguradora")
@@ -206,7 +206,7 @@ with tab3:
     if not st.session_state.casos:
         st.info("🎉 ¡Excelente! No quedan pacientes pendientes en la base de datos para auditar.")
     else:
-        # 1. Mapeamos los pacientes pendientes para crear un selector dinámico interactivo
+        # Mapeamos los pacientes pendientes para crear un selector dinámico interactivo
         opciones_pacientes = {}
         for caso in st.session_state.casos:
             try:
@@ -223,7 +223,10 @@ with tab3:
             caso_seleccionado = opciones_pacientes[seleccion]
             page_id_sel = caso_seleccionado["id"]
             
-            # Recuperamos el texto del informe que el médico ya había subido y guardado en Notion
+            # Usamos una clave (key) dinámica única basada en el ID del paciente seleccionado.
+            # Esto evita que Streamlit reemplace o mezcle el PDF de un paciente con el de otro.
+            key_poliza_dinamica = f"poliza_{page_id_sel}"
+            
             try:
                 texto_informe_previo = caso_seleccionado["properties"]["Resolución de la IA"]["rich_text"][0]["text"]["content"]
             except Exception:
@@ -231,21 +234,21 @@ with tab3:
             
             st.markdown(f"**Caso Activo:** `{page_id_sel}` | Contiene un informe clínico precargado de **{len(texto_informe_previo)}** caracteres.")
             
-            # El auditor de la aseguradora sube ÚNICAMENTE la póliza contractual del cliente
-            poliza_file = st.file_uploader("Cargar Póliza de Seguro del Cliente (PDF):", type=["pdf"], key="p3_poliza")
+            # El componente ahora tiene una llave única para CADA paciente, así no se sobrescriben entre sí
+            poliza_file = st.file_uploader("Cargar Póliza de Seguro del Cliente (PDF):", type=["pdf"], key=key_poliza_dinamica)
             
-            if st.button("🧠 Ejecutar Auditoría Cruzada e Impactar Historial", use_container_width=True):
+            if st.button("🧠 Ejecutar Auditoría Cruzada e Impactar Historial", use_container_width=True, key=f"btn_auditar_{page_id_sel}"):
                 if poliza_file:
                     with st.spinner("Motor RAG activo: Contrastando informe clínico de Notion contra cláusulas del PDF..."):
                         try:
-                            # Extraemos el texto de la póliza subida en este instante
+                            # Extraemos el texto de la póliza subida
                             reader_p = pypdf.PdfReader(poliza_file)
                             texto_poliza_nueva = "".join([page.extract_text() or "" for page in reader_p.pages])
                             
                             # Consolidamos ambos textos para la evaluación inteligente del Agente
                             c_completo = (texto_informe_previo + " " + texto_poliza_nueva).lower()
                             
-                            # Evaluación heurística de conflicto normativo
+                            # Evaluación de conflicto normativo
                             if "carencia" in c_completo or "preexistencia" in c_completo or "hernia" in c_completo or "hernioplastia" in c_completo:
                                 est_f = "Rechazado"
                                 raz_f = "RECHAZO: Al contrastar el informe clínico guardado en Notion con la póliza física cargada, se detectó una violación a la Cláusula 5.3 (Periodo de carencia vigente para hernias)."
@@ -253,7 +256,7 @@ with tab3:
                                 est_f = "Aprobado"
                                 raz_f = "APROBACIÓN: El cruce de variables certifica concordancia sintáctica exacta. El procedimiento se encuentra cubierto al 100% bajo los términos de la póliza analizada."
                             
-                            # Guardamos de forma síncrona el veredicto final en la base de datos reemplazando el texto temporal
+                            # Guardamos de forma síncrona el veredicto final en la base de datos
                             exito = actualizar_caso_notion(page_id_sel, est_f, raz_f)
                             
                             if exito:
@@ -262,7 +265,7 @@ with tab3:
                                     st.balloons()
                                 
                                 time.sleep(2)
-                                # Sincronizamos la memoria local de inmediato
+                                # Sincronizamos la memoria local e inmediatamente limpiamos la caché del componente
                                 st.session_state.todos_los_casos = obtener_todos_los_casos()
                                 st.session_state.casos = obtener_casos_pendientes()
                                 st.rerun()
